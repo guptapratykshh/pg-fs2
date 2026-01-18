@@ -29,6 +29,7 @@ import cats.effect.Selector
 import cats.effect.kernel.{Async, Resource}
 
 import com.comcast.ip4s.{Dns, GenSocketAddress}
+import fs2.io.net.quic.{JvmQuicSocketsProvider, QuicSocket, QuicServerSocket}
 
 import fs2.internal.ThreadFactories
 
@@ -137,6 +138,18 @@ private[net] trait NetworkCompanionPlatform extends NetworkLowPriority { self: N
           ua => fallback.bindDatagramSocket(ua, options)
         )
 
+      override def connectQuic(
+          address: GenSocketAddress,
+          options: List[SocketOption]
+      ): Resource[F, QuicSocket[F]] =
+        fallback.connectQuic(address, options)
+
+      override def bindQuic(
+          address: GenSocketAddress,
+          options: List[SocketOption]
+      ): Resource[F, QuicServerSocket[F]] =
+        fallback.bindQuic(address, options)
+
       // Implementations of deprecated operations
 
       override def datagramSocketGroup(
@@ -164,6 +177,7 @@ private[net] trait NetworkCompanionPlatform extends NetworkLowPriority { self: N
       protected def mkIpDatagramSocketsProvider = AsyncIpDatagramSocketsProvider.forAsync[F]
       protected def mkUnixDatagramSocketsProvider =
         AutoDetectingUnixDatagramSocketsProvider.forAsync[F]
+      protected def mkQuicSocketsProvider = new JvmQuicSocketsProvider[F]()(F, dns)
 
       // Implementations of deprecated operations
 

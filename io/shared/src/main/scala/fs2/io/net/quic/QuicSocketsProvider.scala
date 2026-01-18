@@ -22,27 +22,41 @@
 package fs2
 package io
 package net
+package quic
 
-import cats.effect.{Async, LiftIO}
+import cats.effect.Resource
+import com.comcast.ip4s.{Host, SocketAddress}
 
-private[net] trait NetworkPlatform[F[_]]
+private[net] trait QuicSocketsProvider[F[_]] {
 
-private[net] trait NetworkCompanionPlatform extends NetworkLowPriority { self: Network.type =>
+  def connectQuic(
+      address: SocketAddress[Host],
+      options: List[SocketOption]
+  ): Resource[F, QuicSocket[F]]
 
-  implicit def forLiftIO[F[_]: Async: LiftIO]: Network[F] = {
-    val _ = LiftIO[F]
-    forAsync
-  }
+  def bindQuic(
+      address: SocketAddress[Host],
+      options: List[SocketOption]
+  ): Resource[F, QuicServerSocket[F]]
+}
 
-  def forAsync[F[_]](implicit F: Async[F]): Network[F] = {
-    val omni = new AsyncSocketsProvider[F]
-    new AsyncProviderBasedNetwork[F] {
-      protected def mkIpSocketsProvider = omni
-      protected def mkUnixSocketsProvider = omni
-      protected def mkIpDatagramSocketsProvider = omni
-      protected def mkUnixDatagramSocketsProvider = omni
-      protected def mkQuicSocketsProvider =
-        fs2.io.net.quic.QuicSocketsProvider.unimplemented[F]
+private[net] object QuicSocketsProvider {
+  def unimplemented[F[_]](implicit F: cats.effect.kernel.Async[F]): QuicSocketsProvider[F] =
+    new QuicSocketsProvider[F] {
+      def connectQuic(
+          address: SocketAddress[Host],
+          options: List[SocketOption]
+      ): Resource[F, QuicSocket[F]] =
+        Resource.eval(
+          F.raiseError(new UnsupportedOperationException("QUIC not supported on this platform"))
+        )
+
+      def bindQuic(
+          address: SocketAddress[Host],
+          options: List[SocketOption]
+      ): Resource[F, QuicServerSocket[F]] =
+        Resource.eval(
+          F.raiseError(new UnsupportedOperationException("QUIC not supported on this platform"))
+        )
     }
-  }
 }

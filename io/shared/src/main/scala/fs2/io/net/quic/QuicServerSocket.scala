@@ -22,27 +22,8 @@
 package fs2
 package io
 package net
+package quic
 
-import cats.effect.{Async, LiftIO}
-
-private[net] trait NetworkPlatform[F[_]]
-
-private[net] trait NetworkCompanionPlatform extends NetworkLowPriority { self: Network.type =>
-
-  implicit def forLiftIO[F[_]: Async: LiftIO]: Network[F] = {
-    val _ = LiftIO[F]
-    forAsync
-  }
-
-  def forAsync[F[_]](implicit F: Async[F]): Network[F] = {
-    val omni = new AsyncSocketsProvider[F]
-    new AsyncProviderBasedNetwork[F] {
-      protected def mkIpSocketsProvider = omni
-      protected def mkUnixSocketsProvider = omni
-      protected def mkIpDatagramSocketsProvider = omni
-      protected def mkUnixDatagramSocketsProvider = omni
-      protected def mkQuicSocketsProvider =
-        fs2.io.net.quic.QuicSocketsProvider.unimplemented[F]
-    }
-  }
+trait QuicServerSocket[F[_]] extends SocketInfo[F] {
+  def connections: Stream[F, QuicSocket[F]]
 }

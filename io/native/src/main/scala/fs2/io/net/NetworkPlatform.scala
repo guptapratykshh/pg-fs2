@@ -44,6 +44,8 @@ private[net] trait NetworkCompanionPlatform extends NetworkLowPriority { self: N
         throw new UnsupportedOperationException(
           "Unix datagram sockets not currently supported on Native"
         )
+      protected def mkQuicSocketsProvider =
+        fs2.io.net.quic.QuicSocketsProvider.unimplemented[F]
     }
 
   def forAsync[F[_]](implicit F: Async[F]): Network[F] =

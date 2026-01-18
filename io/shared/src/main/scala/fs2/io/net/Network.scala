@@ -36,6 +36,7 @@ import com.comcast.ip4s.{
   SocketAddress,
   UnixSocketAddress
 }
+import fs2.io.net.quic.{QuicServerSocket, QuicSocket, QuicSocketGroup, QuicSocketsProvider}
 import fs2.io.net.tls.TLSContext
 
 /** Provides the ability to work with stream sockets (e.g. TCP), datagram sockets (e.g. UDP), and TLS.
@@ -61,7 +62,8 @@ import fs2.io.net.tls.TLSContext
 sealed trait Network[F[_]]
     extends NetworkPlatform[F]
     with SocketGroup[F]
-    with DatagramSocketGroup[F] {
+    with DatagramSocketGroup[F]
+    with QuicSocketGroup[F] {
 
   /** Opens a stream socket and connects it to the supplied address.
     *
@@ -186,6 +188,22 @@ object Network extends NetworkCompanionPlatform {
         SocketAddress(address.getOrElse(Ipv4Address.Wildcard), port.getOrElse(Port.Wildcard)),
         options.map(_.toSocketOption)
       )
+
+    override def connectQuic(
+        address: GenSocketAddress,
+        options: List[SocketOption]
+    ): Resource[F, QuicSocket[F]] =
+      Resource.eval(
+        F.raiseError(new UnsupportedOperationException("QUIC not supported on this platform"))
+      )
+
+    override def bindQuic(
+        address: GenSocketAddress,
+        options: List[SocketOption]
+    ): Resource[F, QuicServerSocket[F]] =
+      Resource.eval(
+        F.raiseError(new UnsupportedOperationException("QUIC not supported on this platform"))
+      )
   }
 
   private[fs2] abstract class AsyncProviderBasedNetwork[F[_]](implicit F: Async[F])
@@ -229,6 +247,35 @@ object Network extends NetworkCompanionPlatform {
         address,
         sa => ipDatagramSockets.bindDatagramSocket(sa, options),
         ua => unixDatagramSockets.bindDatagramSocket(ua, options)
+      )
+
+    protected def mkQuicSocketsProvider: QuicSocketsProvider[F]
+    protected lazy val quicSockets: QuicSocketsProvider[F] = mkQuicSocketsProvider
+
+    override def connectQuic(
+        address: GenSocketAddress,
+        options: List[SocketOption]
+    ): Resource[F, QuicSocket[F]] =
+      matchAddress(
+        address,
+        sa => quicSockets.connectQuic(sa, options),
+        _ =>
+          Resource.eval(
+            F.raiseError(new UnsupportedOperationException("QUIC not supported over Unix sockets"))
+          )
+      )
+
+    override def bindQuic(
+        address: GenSocketAddress,
+        options: List[SocketOption]
+    ): Resource[F, QuicServerSocket[F]] =
+      matchAddress(
+        address,
+        sa => quicSockets.bindQuic(sa, options),
+        _ =>
+          Resource.eval(
+            F.raiseError(new UnsupportedOperationException("QUIC not supported over Unix sockets"))
+          )
       )
   }
 
