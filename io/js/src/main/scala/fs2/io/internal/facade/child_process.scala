@@ -62,7 +62,9 @@ private[io] object child_process {
 
     def signalCode: String = js.native
 
-    def kill(): Boolean
+    def kill(): Boolean = js.native
+
+    def kill(signal: String): Boolean = js.native
 
   }
 

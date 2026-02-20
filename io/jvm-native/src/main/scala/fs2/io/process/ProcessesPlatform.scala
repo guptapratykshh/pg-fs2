@@ -57,7 +57,10 @@ private[process] trait ProcessesCompanionPlatform {
               evalOnVirtualThreadIfAvailable(
                 F.blocking {
                   process.destroy()
-                  process.waitFor()
+                  if (!process.waitFor(1, java.util.concurrent.TimeUnit.SECONDS)) {
+                    process.destroyForcibly()
+                    process.waitFor()
+                  }
                   ()
                 }
               ),

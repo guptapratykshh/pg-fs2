@@ -28,6 +28,7 @@ import cats.effect.kernel.Async
 import cats.syntax.all._
 import fs2.io.internal.facade
 
+import scala.concurrent.duration._
 import scala.scalajs.js
 import scala.scalajs.js.JSConverters._
 
@@ -83,7 +84,18 @@ private[process] trait ProcessesCompanionPlatform {
                 Either.unit
               } else {
                 childProcess.kill()
-                childProcess.once("exit", () => cb(Either.unit))
+                var exited = false
+                val timeoutId = scala.scalajs.js.timers.setTimeout(1.second) {
+                  if (!exited) { childProcess.kill("SIGKILL"); () }
+                }
+                childProcess.once(
+                  "exit",
+                  () => {
+                    exited = true
+                    scala.scalajs.js.timers.clearTimeout(timeoutId)
+                    cb(Either.unit)
+                  }
+                )
                 Left(None)
               }
             }
